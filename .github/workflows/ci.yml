@@ -1,0 +1,50 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  checks:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - uses: DeterminateSystems/magic-nix-cache-action@v14
+
+      - name: Build
+        run: nix develop --command cargo build --all-targets
+
+      - name: Test
+        run: nix develop --command cargo test --all-targets
+
+      - name: Check Rust formatting
+        run: nix develop --command cargo fmt --all -- --check
+
+      - name: Run Clippy pedantic
+        run: >-
+          nix develop --command
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check Nix formatting
+        run: nix fmt -- --check flake.nix package.nix
+
+      - name: Run Statix
+        run: nix develop --command statix check .
+
+      - name: Run deadnix
+        run: nix develop --command deadnix --fail .

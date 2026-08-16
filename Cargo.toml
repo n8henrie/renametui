@@ -1,0 +1,22 @@
+[package]
+name = "renametui"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "A conflict-aware terminal UI for regex-based file and directory renaming"
+license = "MIT"
+keywords = ["rename", "regex", "ratatui", "tui"]
+categories = ["command-line-utilities", "filesystem"]
+repository = "https://github.com/n8henrie/renametui"
+
+[dependencies]
+ratatui = "0.30"
+regex = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+expect_used = "deny"
+unwrap_used = "deny"

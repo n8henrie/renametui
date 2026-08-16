@@ -1,0 +1,67 @@
+---
+name: CD
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  publish:
+    strategy:
+      matrix:
+        job:
+          - os: macos-latest
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+    name: Publishing for ${{ matrix.job.os  }}
+    runs-on: ${{ matrix.job.os }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Cargo build
+        run: |
+          cargo build --release
+      - name: Packaging final binary
+        shell: bash
+        env:
+          BINARY_NAME: ${{ github.event.repository.name }}
+        run: |
+          cd target/release
+
+          REFNAME=${{  github.ref_name }}
+          # Avoid issues with refnames that have slashes
+          REFNAME=${REFNAME//\//-}
+          OSNAME=$(uname | tr 'A-Z' 'a-z')
+          ARCH=$(uname -m)
+
+          RELEASE_NAME=${BINARY_NAME}-${REFNAME}-${OSNAME}-${ARCH}
+          tar czvf "$RELEASE_NAME.tar.gz" "$BINARY_NAME"
+          shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
+
+      - name: Releasing assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          BINARY_NAME: ${{ github.event.repository.name }}
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            target/release/${BINARY_NAME}-*.tar.gz
+            target/release/${BINARY_NAME}-*.sha256
+
+  publish-cargo:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Publishing to Cargo
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
